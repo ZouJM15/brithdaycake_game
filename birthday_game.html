@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生日快乐小游戏</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background: #ffe6e6;
+        }
+        #game-container {
+            margin: 20px auto;
+            max-width: 800px;
+        }
+        canvas {
+            border: 1px solid #000;
+            background: #f7f7f7;
+        }
+        .button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #ff6f61;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .button:hover {
+            background-color: #ff3d2f;
+        }
+        #message-section {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>🎂 今天是我的生日！帮我做蛋糕吧！🎂</h1>
+        <canvas id="gameCanvas" width="600" height="400"></canvas>
+        <button id="nextLevelButton" class="button" style="display:none;">进入下一关</button>
+    </div>
+    <div id="message-section">
+        <h2>🎉 恭喜你完成蛋糕制作！🎉</h2>
+        <p>你想对我说些什么？</p>
+        <textarea id="messageInput" rows="4" cols="50" placeholder="写下你的祝福吧..."></textarea><br>
+        <button class="button" id="sendMessageButton">发送留言</button>
+        <p id="successMessage" style="color: green; display: none;">🎉 留言成功！谢谢你的祝福！🎉</p>
+    </div>
+    <script>
+        let level = 1;
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const nextLevelButton = document.getElementById('nextLevelButton');
+        const messageSection = document.getElementById('message-section');
+        const messageInput = document.getElementById('messageInput');
+        const sendMessageButton = document.getElementById('sendMessageButton');
+        const successMessage = document.getElementById('successMessage');
+
+        const images = {};
+        const loadImages = (srcs, callback) => {
+            let loaded = 0;
+            const keys = Object.keys(srcs);
+            keys.forEach((key) => {
+                images[key] = new Image();
+                images[key].src = srcs[key];
+                images[key].onload = () => {
+                    loaded++;
+                    if (loaded === keys.length) callback();
+                };
+            });
+        };
+
+        const srcs = {
+            egg: 'egg.png',
+            basket: 'basket.png',
+            bowl: 'bowl.png',
+            whisk: 'whisk.png',
+            oven: 'oven.png',
+            cream: 'cream.png',
+            cake1: 'cake1.png',
+            cake2: 'cake2.png',
+            cake3: 'cake3.png',
+            cake4: 'cake4.png',
+        };
+
+        function startLevel1() {
+            let basketX = canvas.width / 2 - 50;
+            const basketWidth = 100;
+            const basketHeight = 90;
+            // 鸡蛋的初始位置和属性
+            const egg = {
+                x: Math.random() * canvas.width, // 鸡蛋水平初始位置
+                y: 0, // 鸡蛋初始纵向位置
+                width: 40, // 鸡蛋宽度（椭圆的横轴）
+                height: 60, // 鸡蛋高度（椭圆的纵轴）
+                speed: 2 // 鸡蛋下落速度
+            };
+            let isEggCaught = false;
+
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                basketX = e.clientX - rect.left - basketWidth / 2;
+            });
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // 绘制椭圆鸡蛋
+                ctx.drawImage(
+                    images.egg, 
+                    egg.x - egg.width / 2, 
+                    egg.y - egg.height / 2, 
+                    egg.width, 
+                    egg.height
+                );
+                // 绘制篮子
+                ctx.drawImage(images.basket, basketX, canvas.height - basketHeight - 10, basketWidth, basketHeight);
+
+                if (!isEggCaught) egg.y += egg.speed;
+
+                if (
+                    egg.y + egg.height / 2 >= canvas.height - basketHeight + basketWidth/2 && // 鸡蛋的底部到达篮子高度
+                    egg.x >= basketX && // 鸡蛋的中心在篮子左边界之内
+                    egg.x <= basketX + basketWidth // 鸡蛋的中心在篮子右边界之内
+                ) {
+                    isEggCaught = true;
+                    nextLevelButton.style.display = 'block';
+                }
+
+                if (!isEggCaught) requestAnimationFrame(draw);
+            }
+
+            draw();
+        }
+
+        function startLevel2() {
+            let stirCount = 0; // 搅拌次数
+            const circleCenter = { x: canvas.width / 2, y: canvas.height / 2 }; // 圆心位置
+            const radius = 160; // 搅拌区域半径
+            const startTime = Date.now(); // 游戏开始时间
+            const maxTime = 10000; // 最大时间（10秒）
+            const targetStirCount = 200; // 目标搅拌次数
+            const creamLayers = []; // 存储奶油层位置
+
+            // 定义搅拌工具的位置
+            let whiskPosition = { x: circleCenter.x, y: circleCenter.y };
+
+            // 添加鼠标移动事件监听器
+            canvas.addEventListener('mousemove', stir);
+
+            // 搅拌逻辑
+            function stir(e) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left; // 鼠标相对于画布的 x 坐标
+                const mouseY = e.clientY - rect.top; // 鼠标相对于画布的 y 坐标
+
+                // 计算鼠标相对圆心的位移
+                const dx = mouseX - circleCenter.x;
+                const dy = mouseY - circleCenter.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // 限制搅拌工具在碗的范围内
+                if (distance < radius) {
+                    whiskPosition.x = mouseX;
+                    whiskPosition.y = mouseY;
+                } else {
+                    const angle = Math.atan2(dy, dx); // 计算角度
+                    whiskPosition.x = circleCenter.x + radius * Math.cos(angle); // 限制在边界
+                    whiskPosition.y = circleCenter.y + radius * Math.sin(angle);
+                }
+
+                // 在碗内生成奶油层
+                if (distance < radius-30) {
+                    stirCount++;
+                    creamLayers.push({
+                        x: whiskPosition.x + Math.random() * 10 - 5,
+                        y: whiskPosition.y + Math.random() * 10 - 5,
+                    });
+
+                    // 达到搅拌目标次数
+                    if (stirCount >= targetStirCount) {
+                        nextLevelButton.style.display = 'block'; // 显示“下一关”按钮
+                        canvas.removeEventListener('mousemove', stir); // 移除事件监听
+                    }
+                }
+            }
+
+            // 绘制游戏画面
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // 清空画布
+
+                // 绘制搅拌碗
+                ctx.drawImage(images.bowl, circleCenter.x - radius, circleCenter.y - radius, radius * 2, radius * 2);
+
+                // 绘制奶油层
+                creamLayers.forEach((layer) => {
+                    ctx.drawImage(images.cream, layer.x - 10, layer.y - 10, 40, 40);
+                });
+
+                // 绘制搅拌工具
+                ctx.drawImage(images.whisk, whiskPosition.x - 30, whiskPosition.y - 30, 100, 100);
+
+                // 检查时间和搅拌次数
+                if (Date.now() - startTime < maxTime) {
+                    if (stirCount < targetStirCount) {
+                        requestAnimationFrame(draw); // 继续绘制
+                    } else {
+                        console.log("搅拌完成！");
+                    }
+                } else {
+                    // 时间到且目标未完成，重置游戏
+                    console.log("时间到，重新开始搅拌！");
+                    resetGame();
+                }
+            }
+
+            // 重置游戏逻辑
+            function resetGame() {
+                stirCount = 0; // 重置搅拌次数
+                creamLayers.length = 0; // 清空奶油层
+                whiskPosition = { x: circleCenter.x, y: circleCenter.y }; // 重置搅拌工具位置
+                // 重新添加鼠标移动事件监听器
+                canvas.addEventListener('mousemove', stir);
+                draw(); // 重新开始绘制
+            }
+
+            draw(); // 开始绘制游戏
+        }
+
+        function startLevel3() {
+    
+            const redZoneStart = 150; // 红色区域起始位置
+            const redZoneEnd = 250;  // 红色区域结束位置
+            const progressBarWidth = 400; // 进度条总宽度
+            const progressBarHeight = 20; // 进度条高度
+            const progressBarX = 100; // 进度条X位置
+            const progressBarY = 350; // 进度条Y位置
+
+            let pointX = progressBarX; // 点的初始位置
+            let pointDirection = 1; // 点的移动方向，1为右，-1为左
+            let isSuccess = false; // 是否成功点击
+            let isCakeBaking = false; // 是否正在烤蛋糕
+            let bakeStartTime = 0; // 烤蛋糕开始时间
+            const selectedCake = ['cake1', 'cake2', 'cake3', 'cake4'][Math.floor(Math.random() * 4)]; // 随机蛋糕
+
+            canvas.addEventListener('click', () => {
+                // 检查点击是否成功
+                if (pointX >= redZoneStart && pointX <= redZoneEnd && !isSuccess) {
+                    isSuccess = true;
+                    bakeStartTime = Date.now(); // 开始计时
+                    isCakeBaking = true;
+                }
+            });
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // 绘制烤箱
+                ctx.drawImage(images.oven, 50, 50, 500, 300);
+
+                // 绘制进度条背景（渐变颜色）
+                const gradient = ctx.createLinearGradient(
+                    progressBarX,
+                    progressBarY,
+                    progressBarX + progressBarWidth,
+                    progressBarY
+                );
+                gradient.addColorStop(0, 'blue');
+                gradient.addColorStop(0.5, 'red');
+                gradient.addColorStop(1, 'blue');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(progressBarX, progressBarY, progressBarWidth, progressBarHeight);
+
+                // 绘制红色目标区域的边框
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(redZoneStart, progressBarY, redZoneEnd - redZoneStart, progressBarHeight);
+
+                // 绘制移动的点
+                if (!isSuccess) {
+                    ctx.fillStyle = 'yellow';
+                    ctx.beginPath();
+                    ctx.arc(pointX, progressBarY + progressBarHeight / 2, 10, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // 更新点的位置
+                    pointX += pointDirection * 3; // 每帧移动 3 像素
+                    if (pointX >= progressBarX + progressBarWidth || pointX <= progressBarX) {
+                        pointDirection *= -1; // 反向移动
+                    }
+                }
+
+                // 成功后绘制烤蛋糕
+                if (isSuccess && isCakeBaking) {
+                    ctx.fillStyle = 'white';
+                    ctx.font = '20px Arial';
+                    ctx.fillText('Baking in progress...', 200, 300);
+
+                    if (Date.now() - bakeStartTime >= 5000) {
+                        isCakeBaking = false;
+                        ctx.drawImage(images[selectedCake], 200, 200, 200, 200); // 显示最终蛋糕
+                        nextLevelButton.style.display = 'block'; // 显示“下一关”按钮
+                    }
+                }
+
+                if (!isSuccess || isCakeBaking) {
+                    requestAnimationFrame(draw); // 动画循环
+                }
+            }
+
+            draw();
+        }
+
+        function startGame() {
+            if (level === 1) startLevel1();
+            else if (level === 2) startLevel2();
+            else if (level === 3) startLevel3();
+        }
+
+        nextLevelButton.addEventListener('click', () => {
+            level++;
+            nextLevelButton.style.display = 'none';
+
+            if (level > 3) {
+                canvas.style.display = 'none';
+                messageSection.style.display = 'block';
+            } else {
+                startGame();
+            }
+        });
+
+        sendMessageButton.addEventListener('click', () => {
+            if (messageInput.value.trim()) {
+                successMessage.style.display = 'block';
+            }
+        });
+
+        loadImages(srcs, startGame);
+    </script>
+</body>
+</html>
